@@ -17,7 +17,7 @@ on:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +39,36 @@ jobs:
             --max-pages "${{ inputs.max_pages || '58' }}" \
             --headless --debug \
             --out out/result.csv
+
+      # 실행 화면의 Annotations로 결과 요약을 출력한다 (결과 파일을 내려받지 않고도 읽을 수 있게).
+      - name: Report
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+
+          def enc(s):
+              return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          def note(title, msg):
+              print(f"::notice title={title}::{enc(msg)}")
+
+          p_diag = "out/result.csv.diag.json"
+          if os.path.exists(p_diag):
+              d = json.load(open(p_diag, encoding="utf-8"))
+              note("diag", "title=%s\nurl=%s\nname_count=%s\ncard_count=%s\nbody_head=%s"
+                   % (d.get("title"), d.get("url"), d.get("name_count"), d.get("card_count"), d.get("body_head")))
+              if d.get("card_html"):
+                  note("first_card_html", d["card_html"])
+          else:
+              note("diag", "diag.json 없음 (수집 전에 중단됨)")
+
+          p_csv = "out/result.csv"
+          if os.path.exists(p_csv):
+              note("result_csv", open(p_csv, encoding="utf-8-sig").read()[:6000])
+          else:
+              note("result_csv", "result.csv 없음")
+          PY
 
       # 공개 저장소에 순위 데이터가 남지 않도록, 시험 단계에서는 커밋하지 않고
       # 실행 결과 화면의 Artifacts로만 내려받는다.

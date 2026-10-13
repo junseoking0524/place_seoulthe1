@@ -98,6 +98,26 @@ def main():
             page.screenshot(path=args.out + ".page1.png", full_page=True)
             with open(args.out + ".page1.html", "w", encoding="utf-8") as f:
                 f.write(page.content())
+            # 실행 화면 알림으로 읽을 수 있도록 진단 정보를 따로 저장
+            diag = {"title": page.title(), "url": page.url}
+            try:
+                diag["body_head"] = page.inner_text("body")[:300]
+            except Exception as e:
+                diag["body_head"] = f"(읽기 실패: {e})"
+            names = page.locator(SELECTOR_NAME)
+            diag["name_count"] = names.count()
+            diag["card_html"] = ""
+            if diag["name_count"] > 0:
+                try:
+                    card = names.first.locator(SELECTOR_CARD_XPATH)
+                    diag["card_count"] = card.count()
+                    if card.count() == 1:
+                        diag["card_html"] = card.evaluate("e => e.outerHTML")[:2500]
+                except Exception as e:
+                    diag["card_html"] = f"(카드 HTML 읽기 실패: {e})"
+            import json
+            with open(args.out + ".diag.json", "w", encoding="utf-8") as f:
+                json.dump(diag, f, ensure_ascii=False, indent=1)
         try:
             page.wait_for_selector(SELECTOR_NAME, timeout=15000)
         except Exception:
