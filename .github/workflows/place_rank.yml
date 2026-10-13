@@ -1,0 +1,49 @@
+name: place-rank
+
+on:
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: "검색 키워드"
+        required: true
+        default: "판교통증의학과"
+      max_pages:
+        description: "최대 페이지 수 (시험은 2)"
+        required: true
+        default: "2"
+  # 시험 실행이 성공하고 결과가 직접 검색과 같다고 확인된 뒤에만 아래 두 줄의 # 를 지운다.
+  # schedule:
+  #   - cron: "0 0 * * *"   # UTC 00:00 = 한국시간 09:00 (수 분~수십 분 지연될 수 있음)
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Run
+        run: |
+          mkdir -p out
+          python naver_place_rank.py \
+            --keyword "${{ inputs.keyword || '판교통증의학과' }}" \
+            --max-pages "${{ inputs.max_pages || '58' }}" \
+            --headless --debug \
+            --out out/result.csv
+
+      # 공개 저장소에 순위 데이터가 남지 않도록, 시험 단계에서는 커밋하지 않고
+      # 실행 결과 화면의 Artifacts로만 내려받는다.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: place-rank-result
+          path: out/
